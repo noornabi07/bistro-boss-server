@@ -61,16 +61,32 @@ async function run() {
       res.send({ token })
     })
 
-    // user related api
 
-    app.get('/users', async (req, res) => {
+    // Warning: Use verifyJWT token before verifyAdmin
+    const verifyAdmin = async(req, res, next) =>{
+      const email = req.decoded.email;
+      const query = {email: email};
+      const user = await usersCollection.findOne(query);
+      if(user?.role !== 'admin'){
+        res.status(403).send({error: true, message: 'unauthorized user token'});
+      }
+      next()
+    }
+
+    /**
+     * do not show secure links to those who should not see the link
+     * use jwt token: verifyJWT
+     * use verify admin middleware
+     */
+
+    // user related api
+    app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result)
     })
 
     app.post('/users', async (req, res) => {
       const user = req.body;
-      console.log(user)
       const query = { email: user.email }
       const existingUser = await usersCollection.findOne(query)
       console.log("existing user", existingUser);
@@ -85,15 +101,15 @@ async function run() {
     // verifyJWT is first security for access token
     app.get('/users/admin/:email', verifyJWT, async(req, res) =>{
       const email = req.params.email;
-      
-      // this is second secure for access token
+
+      // email check second security
       if(req.decoded.email !== email){
         res.send({admin: false})
       }
 
       const query = {email: email}
-      const user = await usersCollection.findOne(query)
-      const result  = {admin: user?.role === 'admin'}
+      const user = await usersCollection.findOne(query);
+      const result = {admin: user?.role === 'admin'}
       res.send(result);
     })
 
